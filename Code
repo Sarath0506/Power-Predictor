@@ -1,0 +1,74 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from tensorflow.keras import layers, models
+
+
+data = pd.read_excel("/kaggle/input/antenna/atenna_data.xlsx")
+
+# Extract features and target variable
+tx = data['tx'].values
+ty = data['ty'].values
+rx = data['rx'].values
+ry = data['ry'].values
+tp = data['tp'].values
+rp = data['rp'].values  
+
+# Feature: Compute distance (assuming tx, ty, rx, ry are coordinates)
+distance = np.sqrt((tx - rx) ** 2 + (ty - ry) ** 2)
+
+# Normalize all features
+def normalize(feature):
+    return (feature - feature.mean()) / feature.std()
+
+tx_normalized = normalize(tx)
+ty_normalized = normalize(ty)
+rx_normalized = normalize(rx)
+ry_normalized = normalize(ry)
+tp_normalized = normalize(tp)
+distance_normalized = normalize(distance)
+
+# Combine normalized features into input matrix X
+X = np.column_stack((tx_normalized, ty_normalized, rx_normalized, ry_normalized, tp_normalized, distance_normalized))
+y = rp  # Target variable
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Convert to float32 for TensorFlow
+X_train = np.array(X_train, dtype=np.float32)
+y_train = np.array(y_train, dtype=np.float32)
+X_test = np.array(X_test, dtype=np.float32)
+y_test = np.array(y_test, dtype=np.float32)
+
+# Define the Neural Network Model
+model_nn = models.Sequential([
+    layers.Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    layers.Dense(32, activation='relu'),
+    layers.Dropout(0.2),
+    layers.Dense(1) 
+])
+
+# Compile the Model
+model_nn.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
+
+# Train the Neural Network and store history
+history = model_nn.fit(X_train, y_train, epochs=50, batch_size=32, validation_data=(X_test, y_test))
+
+# Make Predictions
+predictions_nn = model_nn.predict(X_test).flatten()
+
+# Evaluate the Model
+mse_combined = mean_squared_error(y_test, predictions_nn)
+print(f"Mean Squared Error: {mse_combined}")
+
+# Plot Training and Validation Loss
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('Training and Validation Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
